@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoFlow - Smart Tourism Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* MODAL OVERHAUL for perfect centering and responsiveness */
+        .modal-backdrop {
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100%; 
+            height: 100%;
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 40; 
+            opacity: 0; 
+            transition: opacity 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            pointer-events: none;
+        }
+        .modal {
+            max-height: 90vh; /* Safeguard for vertical overflow */
+            margin: auto; /* Centering within the flex container */
+            background: white;
+            border-radius: 1.25rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            overflow-y: auto;
+            display: none;
+            transform: scale(0.95) translateY(10px);
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            padding: 0; /* Let inner div handle padding */
+        }
+       
+        .modal-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-backdrop.active .modal.active {
+            display: block; /* Default display for modals */
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+        
+        /* Specific rule for the chat modal which needs a flex container */
+        .modal-backdrop.active #chat-modal.active {
+            display: flex; 
+        }
+
+        /* Chat bubble styles */
+        .chat-bubble { max-width: 80%; padding: 12px 18px; border-radius: 22px; }
+        .user-bubble { background-color: #10B981; color: white; margin-left: auto; border-bottom-right-radius: 6px; }
+        .bot-bubble { background-color: #F3F4F6; color: #1F2937; margin-right: auto; border-bottom-left-radius: 6px; }
+        .loading-bubble { background-color: #F3F4F6; color: #1F2937; margin-right: auto; border-bottom-left-radius: 6px; font-style: italic;}
+        
+        /* Dashboard Toggle Styles */
+        .dashboard-toggle-btn {
+            padding: 0.5rem 1.5rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            border: 2px solid transparent;
+        }
+        .dashboard-toggle-btn.active {
+            background-color: #0D9488;
+            color: white;
+            border-color: #0D9488;
+        }
+         .dashboard-toggle-btn:not(.active) {
+            background-color: #F1F5F9;
+            color: #475569;
+        }
+
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <!-- Smart Alert Banner -->
+    <div id="alert-banner" class="bg-amber-400 text-amber-900 text-center p-3 font-semibold">
+        <div class="container mx-auto">
+            <span>⚠️ ALERT: Heavy rainfall warning for the Dawki region. Boating activities are temporarily suspended.</span>
+            <button onclick="document.getElementById('alert-banner').style.display='none'" class="ml-4 font-bold">&times;</button>
+        </div>
+    </div>
+    
+    <!-- Header -->
+    <header class="bg-white/80 backdrop-blur-lg sticky top-0 z-30 shadow-sm">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="#" class="text-3xl font-extrabold text-teal-600">EcoFlow</a>
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex space-x-8 items-center font-medium text-slate-600">
+                <a href="#destinations" class="hover:text-teal-600 transition">Destinations</a>
+                <a href="#dashboard" class="hover:text-teal-600 transition">Analytics</a>
+                <a href="#experiences" class="hover:text-teal-600 transition">Experiences</a>
+                <a href="#map-section" class="hover:text-teal-600 transition">Tourist Map</a>
+                <a href="#rewards" class="hover:text-teal-600 transition">Rewards</a>
+                <a href="#" id="helpline-btn-nav" class="text-red-600 hover:text-red-800 transition font-semibold">Helpline</a>
+            </div>
+            <a href="#destinations" class="hidden md:inline-block bg-teal-600 text-white px-5 py-2.5 rounded-full hover:bg-teal-700 transition shadow font-semibold">Book Now</a>
+             <!-- Mobile Menu Button -->
+            <div class="md:hidden">
+                <button id="mobile-menu-button" class="text-slate-800 hover:text-teal-600 focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+            </div>
+        </nav>
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-white shadow-md">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#destinations" class="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-white hover:bg-teal-600">Destinations</a>
+                <a href="#dashboard" class="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-white hover:bg-teal-600">Analytics</a>
+                <a href="#experiences" class="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-white hover:bg-teal-600">Experiences</a>
+                <a href="#map-section" class="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-white hover:bg-teal-600">Tourist Map</a>
+                <a href="#rewards" class="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-white hover:bg-teal-600">Rewards</a>
+                <a href="#" id="helpline-btn-mobile" class="block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:text-white hover:bg-red-600">Helpline</a>
+                <a href="#destinations" class="block w-full text-center mt-2 bg-teal-600 text-white px-5 py-2.5 rounded-full hover:bg-teal-700 transition shadow font-semibold">Book Now</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="relative h-[70vh] md:h-[90vh] flex items-center justify-center text-center text-white">
+            <div class="absolute inset-0 bg-black/60 z-10"></div>
+            <img src="https://mountainsandmahals.com/wp-content/uploads/2023/04/PXL_20221030_090242035.PANO_-1-scaled.jpg" 
+                 onerror="this.onerror=null;this.src='https://placehold.co/1920x1080/a0aec0/ffffff?text=Meghalaya+Landscape';"
+                 class="absolute inset-0 w-full h-full object-cover" alt="Lush green landscape of Meghalaya">
+            <div class="z-20 container mx-auto px-6">
+                <h1 class="text-5xl md:text-7xl font-extrabold mb-4 leading-tight">Data-Driven Journeys, Sustainable Futures.</h1>
+                <p class="text-lg md:text-xl max-w-3xl mx-auto text-slate-200">We use real-time data to manage tourist flow, protect nature, and enhance your experience in Meghalaya.</p>
+                <a href="#destinations" class="mt-8 inline-block bg-teal-600 text-white px-10 py-4 rounded-full text-lg font-semibold hover:bg-teal-700 transition shadow-lg transform hover:scale-105">Book Your Visit</a>
+            </div>
+        </section>
+
+        <!-- Destinations Section -->
+        <section id="destinations" class="py-24 md:py-32">
+            <div class="container mx-auto px-6">
+                <h2 class="text-4xl md:text-5xl font-extrabold text-center mb-4 text-slate-900">Book Your Visit</h2>
+                <p class="text-center text-slate-600 mb-16 text-lg">Select a destination to book your time slot and contribute to a cleaner environment.</p>
+                <div id="destination-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Destination cards will be injected here by JavaScript -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Analytics Dashboard Section -->
+        <section id="dashboard" class="py-24 md:py-32 bg-white">
+            <div class="container mx-auto px-6">
+                <h2 class="text-4xl md:text-5xl font-extrabold text-center mb-4 text-slate-900">Analytics Dashboard</h2>
+                <p class="text-center text-slate-600 mb-12 text-lg">Switch between live data and future forecasts to manage resources effectively.</p>
+                
+                <div class="flex flex-col sm:flex-row items-center justify-center mb-12 gap-4">
+                     <select id="analytics-destination-select" class="w-full sm:w-auto p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 font-semibold"></select>
+                    <div class="bg-slate-200 p-1 rounded-full flex items-center">
+                        <button id="live-view-btn" class="dashboard-toggle-btn active">Live Status</button>
+                        <button id="forecast-view-btn" class="dashboard-toggle-btn">Weekly Forecast</button>
+                    </div>
+                </div>
+
+                <div id="analytics-chart-container" class="max-w-4xl mx-auto">
+                     <div id="live-chart-container" class="bg-white p-6 rounded-xl shadow-lg text-center mx-auto max-w-md"></div>
+                     <div id="forecast-chart-container" class="bg-white p-6 rounded-xl shadow-lg" style="display: none;"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Local Experiences Section -->
+        <section id="experiences" class="py-24 md:py-32">
+            <div class="container mx-auto px-6">
+                <h2 class="text-4xl md:text-5xl font-extrabold text-center mb-4 text-slate-900">Authentic Local Experiences</h2>
+                <p class="text-center text-slate-600 mb-16 text-lg">Support local communities and create unforgettable memories by booking an experience.</p>
+                <div id="experiences-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Experiences cards will be injected here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Map Section -->
+        <section id="map-section" class="py-24 md:py-32 bg-white">
+            <div class="container mx-auto px-6">
+                <h2 class="text-4xl md:text-5xl font-extrabold text-center mb-4 text-slate-900">Explore Meghalaya</h2>
+                <p class="text-center text-slate-600 mb-16 text-lg">Filter destinations to plan your perfect trip.</p>
+                <div class="lg:flex gap-10 bg-white p-8 rounded-2xl shadow-xl">
+                    <div class="lg:w-2/3">
+                        <img src="https://www.mapsofindia.com/maps/meghalaya/meghalaya-map.jpg" class="rounded-lg shadow-md w-full h-full object-cover" alt="Map of Meghalaya Tourist Destinations">
+                    </div>
+                    <div class="lg:w-1/3 mt-8 lg:mt-0 flex flex-col">
+                        <h3 class="font-bold text-2xl mb-4 flex-shrink-0 text-slate-900">Smart Filters</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-4 mb-6">
+                            <select id="filter-type" class="filter-select w-full p-2 border border-gray-300 rounded-lg font-semibold">
+                                <option value="all">All Types</option>
+                                <option value="nature">Nature</option>
+                                <option value="adventure">Adventure</option>
+                                <option value="culture">Culture</option>
+                            </select>
+                            <select id="filter-duration" class="filter-select w-full p-2 border border-gray-300 rounded-lg font-semibold">
+                                <option value="all">All Durations</option>
+                                <option value="half-day">Half-day</option>
+                                <option value="full-day">Full-day</option>
+                            </select>
+                            <select id="filter-accessibility" class="filter-select w-full p-2 border border-gray-300 rounded-lg font-semibold">
+                                <option value="all">All Accessibilities</option>
+                                <option value="easy">Easy</option>
+                                <option value="moderate">Moderate</option>
+                                <option value="tough">Tough</option>
+                            </select>
+                        </div>
+
+                        <div class="border-t pt-6 h-full flex flex-col">
+                            <h3 class="font-bold text-2xl mb-4 flex-shrink-0 text-slate-900">Filtered Destinations</h3>
+                             <ul id="map-destination-list" class="space-y-1 overflow-y-auto pr-2 flex-grow">
+                                <!-- Destination list will be populated here -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- Eco-Warrior Rewards Section -->
+        <section id="rewards" class="py-24 md:py-32">
+            <div class="container mx-auto px-6">
+                <div class="bg-white rounded-2xl shadow-xl p-8 md:p-12 md:flex items-center gap-12 overflow-hidden">
+                    <div class="md:w-1/2 lg:w-3/5">
+                        <h2 class="text-4xl font-extrabold mb-4 text-slate-900">Become an Eco-Warrior</h2>
+                        <p class="text-slate-600 mb-6 text-lg">Join our rewards program! Earn points for sustainable actions and redeem them for discounts and special perks.</p>
+                        <div class="bg-slate-100 p-6 rounded-lg">
+                            <div class="flex justify-between items-center mb-2">
+                                <p class="font-semibold text-slate-700">Your Eco-Points</p>
+                                <p class="font-bold text-teal-600 text-3xl">120 pts</p>
+                            </div>
+                            <div class="w-full bg-slate-300 rounded-full h-2.5">
+                                <div class="bg-teal-500 h-2.5 rounded-full" style="width: 60%"></div>
+                            </div>
+                            <p class="text-sm text-right mt-1 text-slate-500">80 points to next reward!</p>
+                        </div>
+                        <div class="mt-8 space-y-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center flex-shrink-0">✓</div>
+                                <p>Book on weekdays to earn <span class="font-bold">10 points</span>.</p>
+                            </div>
+                             <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0">✓</div>
+                                <p>Book a Local Experience to earn <span class="font-bold">30 points</span>.</p>
+                            </div>
+                             <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center flex-shrink-0">✓</div>
+                                <p>Opt-in for Trash-Back to earn <span class="font-bold">20 points</span>.</p>
+                            </div>
+                        </div>
+                         <button id="redeem-rewards-btn" class="mt-8 w-full bg-blue-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-blue-700 transition shadow-lg">Redeem Your Points</button>
+                    </div>
+                    <div class="md:w-1/2 lg:w-2/5 mt-8 md:mt-0 flex justify-center">
+                        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQykbB00UYICl9hgyY_J-mUb729CzfptjEYdQ&s" class="rounded-xl shadow-lg max-w-sm w-full" alt="Happy tourist with a reward">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Itinerary Planner Section -->
+        <section id="planner" class="py-24 md:py-32 bg-white">
+            <div class="container mx-auto px-6">
+                <div class="bg-white rounded-2xl shadow-xl p-8 md:p-12 lg:flex items-center gap-12 overflow-hidden">
+                    <div class="lg:w-1/2">
+                        <h2 class="text-4xl font-extrabold mb-4 text-slate-900">Gemini-Powered Trip Planner</h2>
+                        <p class="text-slate-600 mb-6 text-lg">Ask our advanced AI assistant for travel tips, personalized itineraries, and sustainable travel advice!</p>
+                         <button type="button" id="open-chat-from-planner" class="w-full bg-teal-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-teal-700 transition shadow-lg">Ask AI Assistant</button>
+                    </div>
+                    <div class="lg:w-1/2 mt-8 lg:mt-0">
+                        <img src="https://www.incredible-northeastindia.com/images/dest-head/meghalaya/1.jpg" class="rounded-xl shadow-lg" alt="Tourist planning a trip">
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-12">
+        <div class="container mx-auto px-6 text-center">
+            <p class="text-3xl font-extrabold text-white">EcoFlow</p>
+            <p class="mt-2 text-slate-400">Preserving Paradise, One Visitor at a Time.</p>
+            <div class="mt-6">
+                 <a href="#" id="helpline-btn-footer" class="text-red-400 hover:text-white transition font-semibold">Emergency Helpline</a>
+            </div>
+            <p class="mt-6 text-sm text-slate-500">&copy; 2025 EcoFlow. An Ideathon Project for Lady Keane College.</p>
+        </div>
+    </footer>
+
+    <!-- Floating Action Buttons -->
+    <button id="chat-fab" class="fixed bottom-6 right-6 bg-teal-600 text-white w-16 h-16 rounded-full shadow-xl flex items-center justify-center transform hover:scale-110 transition-transform z-20">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.839 8.839 0 01-4.083-.982A.5.5 0 005 16.517V15a7 7 0 115.343-6.572.5.5 0 00.657-.343A7.001 7.001 0 0118 10zm-5 1a1 1 0 10-2 0v2a1 1 0 102 0v-2zM9 9a1 1 0 10-2 0v2a1 1 0 102 0V9zm4 0a1 1 0 10-2 0v2a1 1 0 102 0V9z" clip-rule="evenodd" /></svg>
+    </button>
+    
+    <!-- All Modals -->
+    <div id="modal-backdrop" class="modal-backdrop">
+        <!-- Booking Modal -->
+        <div id="booking-modal" class="modal w-full max-w-3xl">
+             <div class="w-full p-4 sm:p-8 relative pointer-events-auto">
+                <button data-close-button class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl z-10">&times;</button>
+                <h2 id="modal-title" class="text-2xl md:text-3xl font-bold mb-4 text-center">Book Your Visit</h2>
+                <div class="flex flex-col md:flex-row gap-8">
+                    <div class="w-full md:w-1/2">
+                        <div class="mb-4">
+                            <label for="booking-date" class="block text-gray-700 font-medium mb-2">Select Date</label>
+                            <input type="date" id="booking-date" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                        </div>
+                        <div class="mb-4">
+                            <label for="booking-people" class="block text-gray-700 font-medium mb-2">Number of People</label>
+                            <input type="number" id="booking-people" value="1" min="1" max="10" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                        </div>
+                         <div id="trash-back-container" class="mt-4 p-3 bg-slate-50 rounded-lg border">
+                            <label for="trash-back-checkbox" class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="trash-back-checkbox" class="h-5 w-5 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                                <span class="ml-3 text-slate-700">Opt-in for Trash-Back System (+₹50 deposit)</span>
+                            </label>
+                        </div>
+                        <div id="price-display" class="mt-6 bg-teal-50 p-4 rounded-lg text-center">
+                            <p class="text-slate-600">Total Price</p>
+                            <p id="total-price" class="text-3xl font-bold text-teal-600">₹--</p>
+                            <p id="price-info" class="text-sm text-slate-500 mt-1">&nbsp;</p>
+                        </div>
+                    </div>
+                    <div class="w-full md:w-1/2">
+                        <label class="block text-gray-700 font-medium mb-2">Select Time Slot</label>
+                        <div id="time-slots" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <!-- Time slots will be generated here -->
+                        </div>
+                    </div>
+                </div>
+                <button id="confirm-booking-btn" class="w-full mt-8 bg-teal-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-teal-700 transition shadow-lg disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>Confirm Booking</button>
+            </div>
+        </div>
+        
+        <!-- Confirmation Modal -->
+        <div id="confirmation-modal" class="modal w-full max-w-md">
+            <div class="w-full p-4 sm:p-8 text-center">
+                <button data-close-button class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl z-10">&times;</button>
+                <div class="mx-auto bg-green-100 rounded-full h-16 w-16 flex items-center justify-center">
+                    <svg class="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                </div>
+                <h2 class="text-2xl font-bold my-4">Booking Confirmed!</h2>
+                <p class="text-slate-600 mb-4">Your e-ticket has been generated. Show this QR code at the entry.</p>
+                <img id="qr-code" src="" alt="QR Code" class="mx-auto my-4 border p-2 rounded-lg">
+                <div id="booking-summary" class="text-left bg-slate-50 p-4 rounded-lg border"></div>
+                <div id="deposit-info" class="text-left bg-yellow-50 p-4 rounded-lg border border-yellow-200 mt-4 text-yellow-800"></div>
+                <div id="safety-info" class="text-left bg-blue-50 p-4 rounded-lg border border-blue-200 mt-4 text-blue-800">
+                    <p class="font-bold">Safety First!</p>
+                    <p class="text-sm mt-1">For your safety, our system will send a reminder if you don't check out via QR scan after your slot. Please use the SOS button in case of an emergency.</p>
+                </div>
+                <div class="mt-6 flex flex-col sm:flex-row gap-4">
+                    <button id="download-receipt-btn" class="w-full bg-slate-200 text-slate-700 px-8 py-2 rounded-full font-semibold hover:bg-slate-300 transition">Download Receipt</button>
+                    <button data-close-button class="w-full bg-teal-600 text-white px-8 py-2 rounded-full font-semibold hover:bg-teal-700 transition">Done</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Chatbot Modal -->
+        <div id="chat-modal" class="modal w-full max-w-md h-[70vh] flex-col">
+            <div class="w-full p-4 border-b flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                <h2 class="text-xl font-bold text-teal-700">EcoFlow AI Assistant</h2>
+                <button data-close-button class="text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+            </div>
+            <div id="chat-window" class="flex-1 p-4 overflow-y-auto space-y-4">
+                <!-- Chat messages will be appended here -->
+            </div>
+            <div class="w-full p-4 border-t">
+                <form id="chat-form" class="flex gap-2">
+                    <input type="text" id="chat-input" placeholder="Ask about travel times..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" autocomplete="off">
+                    <button type="submit" class="bg-teal-600 text-white px-4 rounded-lg hover:bg-teal-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Helpline Modal -->
+        <div id="helpline-modal" class="modal w-full max-w-4xl">
+             <div class="w-full p-4 sm:p-8 relative">
+                <button data-close-button class="absolute top-6 right-6 text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+                <h2 class="text-4xl font-extrabold text-center mb-8">Safety & Helpline</h2>
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="font-bold text-xl mb-4 text-red-600">Emergency Actions</h3>
+                        <div class="space-y-4">
+                            <button id="sos-button" class="w-full text-left p-4 bg-red-600 text-white rounded-lg transition hover:bg-red-700 flex items-center justify-between font-bold">
+                                <span>ACTIVATE SOS</span>
+                                <span class="text-xs">Sends Location to Authorities</span>
+                            </button>
+                            <a href="tel:100" class="block w-full text-left p-4 bg-red-50 hover:bg-red-100 rounded-lg transition border border-red-200">
+                                <p class="font-bold">Tourist Police</p>
+                                <p class="text-sm text-slate-600">For safety & security issues</p>
+                            </a>
+                            <a href="tel:108" class="block w-full text-left p-4 bg-red-50 hover:bg-red-100 rounded-lg transition border border-red-200">
+                                <p class="font-bold">Medical Emergency</p>
+                                <p class="text-sm text-slate-600">Ambulance & health services</p>
+                            </a>
+                            <a href="tel:1077" class="block w-full text-left p-4 bg-red-50 hover:bg-red-100 rounded-lg transition border border-red-200">
+                                <p class="font-bold">Disaster Management</p>
+                                <p class="text-sm text-slate-600">For natural calamities</p>
+                            </a>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-xl mb-4 text-slate-700">General Inquiries</h3>
+                        <div class="bg-slate-50 p-4 rounded-lg border h-full">
+                            <p class="font-semibold">Meghalaya Tourism Office</p>
+                            <p class="text-sm text-slate-600 mt-2">3rd Secretariat Nokrek Building,</p>
+                            <p class="text-sm text-slate-600">Lower Lachumiere, Shillong</p>
+                            <p class="text-sm text-slate-600 mt-2"><span class="font-semibold">Email:</span> contact@meghalayatourism.in (dummy)</p>
+                            <p class="text-sm text-slate-600"><span class="font-semibold">Phone:</span> +91-364-2500736 (dummy)</p>
+                             <a href="https://www.meghalayatourism.in/about-meghalaya/contact/" target="_blank" class="mt-4 inline-block text-teal-600 font-semibold hover:underline">Official Contact Page →</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rewards Modal -->
+        <div id="rewards-modal" class="modal w-full max-w-2xl">
+             <div class="w-full p-4 sm:p-8 relative">
+                <button data-close-button class="absolute top-6 right-6 text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+                <h2 class="text-4xl font-extrabold text-center mb-2">Rewards Store</h2>
+                <p class="text-center text-slate-500 mb-8">You have <span class="font-bold text-teal-600">120 Eco-Points</span> to spend.</p>
+                <div id="rewards-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                     <!-- Rewards will be injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Diversion Modal -->
+        <div id="diversion-modal" class="modal w-full max-w-3xl">
+             <div class="w-full p-4 sm:p-8 relative">
+                <button data-close-button class="absolute top-6 right-6 text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+                <h2 class="text-4xl font-extrabold text-center mb-4 text-slate-900">Discover a Hidden Gem!</h2>
+                <p id="diversion-text-modal" class="text-center text-slate-600 mb-8 text-lg"></p>
+                <div id="diversion-grid-modal" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <!-- Diversion suggestions will be injected here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Generic Alert/Confirm Modal -->
+        <div id="alert-modal" class="modal w-full max-w-sm">
+             <div class="w-full p-4 sm:p-6 text-center relative">
+                <h2 id="alert-title" class="text-2xl font-bold mb-4">Alert</h2>
+                <p id="alert-message" class="text-slate-600 mb-6">This is an alert message.</p>
+                <div id="alert-buttons" class="flex justify-center gap-4">
+                    <!-- Buttons will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DATA ---
+            const environmentalDeposit = 50; 
+
+            const destinations = [
+                { id: 1, name: 'Nongriat Living Root Bridge', image: 'https://assets.telegraphindia.com/telegraph/3dcd10a8-a311-4c14-a70c-aa4ce601e46f.jpg', basePrice: 100, mapUrl: 'https://www.google.com/maps/place/Nongriat+Double-Decker+Root+Bridge/@25.2530068,91.673479,17z', capacity: 300, alternatives: [105], type: 'adventure', duration: 'full-day', accessibility: 'tough' },
+                { id: 2, name: 'Dawki River (Umgnot)', image: 'https://im.indiatimes.in/photogallery/2021/Mar/Dawki-River-Meghalaya-photo1_6041edd4255bc.jpg', basePrice: 150, mapUrl: 'https://www.google.com/maps/place/Umgnot+River/@25.1852951,92.0084321,15z', capacity: 500, alternatives: [104], type: 'nature', duration: 'half-day', accessibility: 'easy' },
+                { id: 3, name: 'Nohkalikai Falls', image: 'https://www.meghalayatourism.in/wp-content/uploads/2020/07/noh-ka-likai-falls-3.jpg', basePrice: 80, mapUrl: 'https://www.google.com/maps/place/Nohkalikai+Falls/@25.2818625,91.6881268,17z', capacity: 400, alternatives: [105], type: 'nature', duration: 'half-day', accessibility: 'easy' },
+                { id: 104, name: 'Shnongpdeng', image: 'https://www.meghalayatourism.in/wp-content/uploads/2021/04/Shnongpdeng-4.jpeg', basePrice: 60, mapUrl: 'https://www.google.com/maps/place/Shnongpdeng,+Meghalaya+793109/data=!4m2!3m1!1s0x375061611c05d76d:0x1b446a67f561f3be?sa=X&ved=2ahUKEwj7i_Xp6b-GAxVW1zgGHZgPCpQQ8gF6BAgTEAA', capacity: 200, alternatives: [2], type: 'adventure', duration: 'full-day', accessibility: 'moderate' },
+                { id: 105, name: 'Wei Sawdong Falls', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Wei_Sawdong_falls.jpg/1200px-Wei_Sawdong_falls.jpg', basePrice: 70, mapUrl: 'https://www.google.com/maps/place/Wei+Sawdong+Waterfall/@25.297495,91.675695,17z', capacity: 150, alternatives: [3], type: 'nature', duration: 'half-day', accessibility: 'moderate' },
+                { id: 106, name: 'Mawphlang Sacred Grove', image: 'https://www.meghalayatourism.in/wp-content/uploads/2020/07/Mawphlang-Sacred-Forest-3.jpg', basePrice: 50, mapUrl: 'https://www.google.com/maps/place/Mawphlang+Sacred+Forest/@25.498611,91.753889,17z', capacity: 100, alternatives: [], type: 'culture', duration: 'half-day', accessibility: 'easy' },
+            ];
+
+            const experiences = [
+                { id: 101, name: 'Khasi Cooking Class', image: 'https://www.meghalayatourism.in/wp-content/uploads/2020/07/Jingbam-Dih-Sha.jpg', host: 'with a local family in Tyrna', price: 800 },
+                { id: 102, name: 'Bamboo Weaving Workshop', image: 'https://c8.alamy.com/zooms/9/a5f6f57f5984440eb271906c3f40810f/2a1rj5f.jpg', host: 'in Mawlynnong village', price: 600 },
+                { id: 103, name: 'Sacred Grove Guided Tour', image: 'https://www.meghalayatourism.in/wp-content/uploads/2020/07/nongkhnum1.jpg', host: 'with a nature expert', price: 500 },
+            ];
+            
+            const forecastData = {
+                1: [150, 180, 200, 250, 280, 290, 220],
+                2: [250, 280, 350, 400, 450, 480, 300],
+                3: [200, 220, 280, 320, 350, 380, 250],
+                104: [80, 100, 120, 150, 180, 190, 110],
+                105: [70, 90, 110, 130, 140, 145, 95],
+                106: [40, 50, 60, 80, 90, 95, 70],
+            };
+
+            const rewards = [
+                { id: 201, name: '10% Off Local Handicrafts', cost: 100, code: 'CRAFTY10' },
+                { id: 202, name: 'Free Khasi Red Tea', cost: 50, code: 'TEATIME50' },
+                { id: 203, name: '₹50 Off Next Booking', cost: 150, code: 'ECOFLOW50' },
+                { id: 204, name: 'Free Entry to Botanical Garden', cost: 80, code: 'GARDEN80' },
+            ];
+
+            // --- SIMULATED LIVE DATA ---
+            let liveTrafficData = { 1: 120, 2: 450, 3: 180, 104: 50, 105: 40, 106: 30 };
+            
+            // --- DOM ELEMENTS ---
+            const destinationGrid = document.getElementById('destination-grid');
+            const experiencesGrid = document.getElementById('experiences-grid');
+            const mapDestinationList = document.getElementById('map-destination-list');
+            const chatFab = document.getElementById('chat-fab');
+            const modalBackdrop = document.getElementById('modal-backdrop');
+            const openChatFromPlannerBtn = document.getElementById('open-chat-from-planner');
+            const helplineBtnNav = document.getElementById('helpline-btn-nav');
+            const helplineBtnFooter = document.getElementById('helpline-btn-footer');
+            const redeemRewardsBtn = document.getElementById('redeem-rewards-btn');
+            const analyticsSelect = document.getElementById('analytics-destination-select');
+            
+            // --- DASHBOARD & CHART LOGIC ---
+            function renderAnalytics(destinationId) {
+                const liveContainer = document.getElementById('live-chart-container');
+                const forecastContainer = document.getElementById('forecast-chart-container');
+                
+                liveContainer.innerHTML = '<canvas id="live-chart"></canvas>';
+                forecastContainer.innerHTML = '<canvas id="forecast-chart"></canvas>';
+                
+                const dest = destinations.find(d => d.id === destinationId);
+                if (!dest) return;
+
+                const liveCtx = document.getElementById('live-chart').getContext('2d');
+                new Chart(liveCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Current Visitors', 'Available Space'],
+                        datasets: [{
+                            data: [liveTrafficData[dest.id], Math.max(0, dest.capacity - liveTrafficData[dest.id])],
+                            backgroundColor: ['#0D9488', '#F1F5F9'],
+                            borderColor: ['#FFFFFF'], borderWidth: 4
+                        }]
+                    },
+                    options: { responsive: true, cutout: '70%', plugins: { legend: { display: false }, title: { display: true, text: `${dest.name} - Live Status`, font: { size: 18, weight: 'bold' } } } }
+                });
+
+                const next7Days = Array.from({length: 7}, (_, i) => {
+                    const d = new Date(); d.setDate(d.getDate() + i);
+                    return d.toLocaleDateString('en-US', { weekday: 'short' });
+                });
+                const forecastCtx = document.getElementById('forecast-chart').getContext('2d');
+                new Chart(forecastCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: next7Days,
+                        datasets: [{
+                            label: 'Predicted Bookings',
+                            data: forecastData[dest.id],
+                            backgroundColor: '#0D9488', borderRadius: 4,
+                        }]
+                    },
+                    options: { responsive: true, plugins: { legend: { display: false }, title: { display: true, text: `${dest.name} - Weekly Forecast`, font: { size: 18, weight: 'bold' } } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
+                });
+                
+                checkAndTriggerDiversion(destinationId);
+            }
+
+            // --- RENDER FUNCTIONS ---
+            function renderDestinations() {
+                destinationGrid.innerHTML = destinations.map(dest => {
+                    if (dest.id > 100) return ''; // Don't show alternatives here
+                    return `
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden transform hover:-translate-y-2 transition-transform duration-300">
+                        <img src="${dest.image}" class="w-full h-56 object-cover" alt="${dest.name}">
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold mb-2">${dest.name}</h3>
+                            <a href="${dest.mapUrl}" target="_blank" class="text-sm text-teal-600 hover:underline mb-4 inline-block">View on Map</a>
+                            <button data-id="${dest.id}" class="book-now-btn w-full bg-teal-100 text-teal-800 font-semibold px-4 py-2 rounded-lg hover:bg-teal-200 transition">Book Now</button>
+                        </div>
+                    </div>
+                `}).join('');
+            }
+
+            function checkAndTriggerDiversion(destinationId) {
+                const diversionModal = document.getElementById('diversion-modal');
+                const diversionText = document.getElementById('diversion-text-modal');
+                const diversionGrid = document.getElementById('diversion-grid-modal');
+                
+                const busySpot = destinations.find(d => d.id === destinationId && (liveTrafficData[d.id] / d.capacity) > 0.8 && d.alternatives);
+
+                if (busySpot) {
+                    diversionText.innerHTML = `<strong>${busySpot.name}</strong> is experiencing high traffic. For a better experience, try these nearby gems!`;
+                    diversionGrid.innerHTML = busySpot.alternatives.map(altId => {
+                        const altDest = destinations.find(d => d.id === altId);
+                        if (!altDest) return '';
+                        return `
+                             <div class="bg-white rounded-xl shadow-lg overflow-hidden transform hover:-translate-y-2 transition-transform duration-300">
+                                 <img src="${altDest.image}" class="w-full h-56 object-cover" alt="${altDest.name}">
+                                 <div class="p-6">
+                                     <h3 class="text-xl font-bold mb-2">${altDest.name}</h3>
+                                     <a href="${altDest.mapUrl}" target="_blank" class="text-sm text-teal-600 hover:underline mb-4 inline-block">View on Map</a>
+                                     <button data-id="${altDest.id}" class="book-now-btn w-full bg-teal-100 text-teal-800 font-semibold px-4 py-2 rounded-lg hover:bg-teal-200 transition">Book Now</button>
+                                 </div>
+                             </div>
+                        `;
+                    }).join('');
+                    openModal(diversionModal);
+                }
+            }
+
+
+            function renderExperiences() {
+                experiencesGrid.innerHTML = experiences.map(exp => `
+                     <div class="bg-white rounded-xl shadow-lg overflow-hidden transform hover:-translate-y-2 transition-transform duration-300">
+                         <img src="${exp.image}" onerror="this.onerror=null;this.src='https://placehold.co/600x400/a0aec0/ffffff?text=Experience';" class="w-full h-56 object-cover" alt="${exp.name}">
+                         <div class="p-6">
+                             <h3 class="text-xl font-bold mb-1">${exp.name}</h3>
+                             <p class="text-sm text-slate-500 mb-3">${exp.host}</p>
+                             <div class="flex justify-between items-center">
+                                 <p class="text-lg font-bold text-teal-600">₹${exp.price}</p>
+                                 <button data-id="${exp.id}" class="book-exp-btn bg-blue-100 text-blue-800 font-semibold px-4 py-2 rounded-lg hover:bg-blue-200 transition">Book</button>
+                             </div>
+                         </div>
+                     </div>
+                `).join('');
+            }
+            
+            function renderFilteredMapDestinations() {
+                const type = document.getElementById('filter-type').value;
+                const duration = document.getElementById('filter-duration').value;
+                const accessibility = document.getElementById('filter-accessibility').value;
+
+                const filtered = destinations.filter(dest => 
+                    (type === 'all' || dest.type === type) &&
+                    (duration === 'all' || dest.duration === duration) &&
+                    (accessibility === 'all' || dest.accessibility === accessibility)
+                );
+
+                mapDestinationList.innerHTML = filtered.map(dest => {
+                    const mapQuery = encodeURIComponent(`${dest.name}, Meghalaya`);
+                    const mapUrl = `https://www.google.com/maps/search/${mapQuery}`;
+                    return `
+                        <li>
+                            <a href="${mapUrl}" target="_blank" class="block p-2.5 rounded-md hover:bg-slate-100 text-slate-700 hover:text-teal-600 transition font-medium">
+                                ${dest.name}
+                            </a>
+                        </li>
+                    `;
+                }).join('');
+                if (filtered.length === 0) {
+                    mapDestinationList.innerHTML = `<li class="p-2.5 text-slate-500">No destinations match your filters.</li>`;
+                }
+            }
+             function renderRewards() {
+                const rewardsGrid = document.getElementById('rewards-grid');
+                rewardsGrid.innerHTML = rewards.map(reward => `
+                    <div class="bg-slate-50 rounded-lg p-4 border flex flex-col justify-between">
+                        <div>
+                            <p class="font-bold text-slate-800">${reward.name}</p>
+                            <p class="text-sm text-slate-500 mt-1">Cost: <span class="font-semibold">${reward.cost} pts</span></p>
+                        </div>
+                        <button data-code="${reward.code}" class="redeem-btn mt-4 w-full bg-teal-100 text-teal-800 font-semibold px-4 py-2 rounded-lg hover:bg-teal-200 transition">Redeem</button>
+                    </div>
+                `).join('');
+            }
+            
+            // --- BOOKING CONFIRMATION & DATA UPDATE ---
+            function showConfirmation() {
+                if (currentBooking.destinationId) {
+                    const peopleCount = parseInt(currentBooking.people);
+                    liveTrafficData[currentBooking.destinationId] += peopleCount;
+                    renderAnalytics(parseInt(analyticsSelect.value));
+                }
+                
+                const summaryContainer = document.getElementById('booking-summary');
+                summaryContainer.innerHTML = `
+                    <p><strong>Item:</strong> ${currentBooking.destinationName}</p>
+                    <p><strong>Date:</strong> ${currentBooking.date}</p>
+                    <p><strong>Time:</strong> ${currentBooking.time || 'N/A'}</p>
+                    <p><strong>Guests:</strong> ${currentBooking.people}</p>
+                    <p class="font-bold mt-2"><strong>Base Price:</strong> ₹${currentBooking.price}</p>
+                `;
+
+                const depositInfo = document.getElementById('deposit-info');
+                let finalPrice = currentBooking.price;
+                if (currentBooking.useTrashBack) {
+                    finalPrice += environmentalDeposit;
+                    depositInfo.innerHTML = `
+                        <p class="font-bold">Includes ₹${environmentalDeposit} Refundable Deposit</p>
+                        <p class="text-sm mt-1">Return your waste to the exit kiosk to get your deposit back and earn 20 Eco-Points!</p>
+                    `;
+                    depositInfo.style.display = 'block';
+                } else {
+                     depositInfo.style.display = 'none';
+                }
+                
+                document.getElementById('safety-info').style.display = currentBooking.type === 'destination' ? 'block' : 'none';
+                
+                summaryContainer.innerHTML += `<p class="font-bold"><strong>Total Paid:</strong> ₹${finalPrice}</p>`;
+
+                const qrData = `Booking for ${currentBooking.destinationName} on ${currentBooking.date}. Guests: ${currentBooking.people}. Ref: ${Date.now()}`;
+                document.getElementById('qr-code').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+
+                openModal(document.getElementById('confirmation-modal'));
+                
+                const downloadBtn = document.getElementById('download-receipt-btn');
+                downloadBtn.addEventListener('click', () => {
+                    const receiptText = `
+            EcoFlow Booking Confirmation
+            ---------------------------------
+            Item: ${currentBooking.destinationName}
+            Date: ${currentBooking.date}
+            Time: ${currentBooking.time || 'N/A'}
+            Guests: ${currentBooking.people}
+            Base Price: ₹${currentBooking.price}
+            Trash-Back Deposit: ${currentBooking.useTrashBack ? `₹${environmentalDeposit}` : 'N/A'}
+            ---------------------------------
+            Total Paid: ₹${currentBooking.price + (currentBooking.useTrashBack ? environmentalDeposit : 0)}
+            
+            Thank you for choosing EcoFlow!
+                    `;
+
+                    const blob = new Blob([receiptText.trim()], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `EcoFlow-Receipt-${Date.now()}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, { once: true }); // Use { once: true } to avoid adding multiple listeners
+            }
+            
+            // --- GEMINI AI CHATBOT LOGIC ---
+            function addChatMessage(message, sender, isLoading = false) {
+                const chatWindow = document.getElementById('chat-window');
+                const bubble = document.createElement('div');
+                if (isLoading) {
+                    bubble.className = `chat-bubble loading-bubble`;
+                    bubble.id = 'loading-bubble';
+                    bubble.textContent = message;
+                } else {
+                    bubble.className = `chat-bubble ${sender}-bubble`;
+                    bubble.textContent = message;
+                }
+                chatWindow.appendChild(bubble);
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+                return bubble;
+            }
+
+            async function getAIResponse(query) {
+                const loadingBubble = addChatMessage('Kai is typing...', 'bot', true);
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const systemPrompt = "You are a friendly and knowledgeable tour guide for Meghalaya, India. Your name is 'Kai'. You specialize in promoting sustainable and responsible tourism. Provide concise, helpful, and friendly advice. Keep your answers to a maximum of 3-4 sentences.";
+                const payload = { contents: [{ parts: [{ text: query }] }], systemInstruction: { parts: [{ text: systemPrompt }] } };
+
+                try {
+                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(`API error: ${response.statusText}`);
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    loadingBubble.remove();
+                    addChatMessage(text || "I'm sorry, I couldn't generate a response right now.", 'bot');
+                } catch (error) {
+                    console.error("Gemini API call failed:", error);
+                    loadingBubble.remove();
+                    addChatMessage("Sorry, I'm having trouble connecting. Please try again later.", 'bot');
+                }
+            }
+            
+            // --- MODAL & BOOKING LOGIC ---
+            let currentBooking = {};
+            const modals = {
+                booking: document.getElementById('booking-modal'),
+                confirmation: document.getElementById('confirmation-modal'),
+                chat: document.getElementById('chat-modal'),
+                helpline: document.getElementById('helpline-modal'),
+                rewards: document.getElementById('rewards-modal'),
+                diversion: document.getElementById('diversion-modal'),
+                alert: document.getElementById('alert-modal'),
+            };
+
+            function openModal(modal) {
+                if (!modal) return;
+                
+                Object.values(modals).forEach(m => m.classList.remove('active'));
+
+                modal.classList.add('active'); 
+                modalBackdrop.classList.add('active');
+            }
+
+            function closeModal() {
+                modalBackdrop.classList.remove('active');
+                const activeModal = document.querySelector('.modal.active');
+                if (activeModal) {
+                    activeModal.classList.remove('active');
+                }
+            }
+
+            function showAlert(message, title = 'Alert') {
+                const alertModal = modals.alert;
+                alertModal.querySelector('#alert-title').textContent = title;
+                alertModal.querySelector('#alert-message').textContent = message;
+                const buttonsContainer = alertModal.querySelector('#alert-buttons');
+                buttonsContainer.innerHTML = `
+                    <button data-close-button class="w-full bg-teal-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-teal-700 transition">OK</button>
+                `;
+                openModal(alertModal);
+            }
+
+            function showConfirm(message, title = 'Confirm', onConfirm) {
+                const alertModal = modals.alert;
+                alertModal.querySelector('#alert-title').textContent = title;
+                alertModal.querySelector('#alert-message').textContent = message;
+                const buttonsContainer = alertModal.querySelector('#alert-buttons');
+                buttonsContainer.innerHTML = `
+                    <button data-close-button class="w-1/2 bg-slate-200 text-slate-700 px-6 py-2 rounded-full font-semibold hover:bg-slate-300 transition">Cancel</button>
+                    <button id="confirm-action-btn" class="w-1/2 bg-red-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-red-700 transition">Confirm</button>
+                `;
+                openModal(alertModal);
+                
+                // Use a one-time event listener to avoid stacking listeners
+                const confirmBtn = document.getElementById('confirm-action-btn');
+                const newConfirmBtn = confirmBtn.cloneNode(true);
+                confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+                newConfirmBtn.addEventListener('click', () => {
+                    closeModal();
+                    if (onConfirm) onConfirm();
+                });
+            }
+            
+            function setupBookingModal(itemId, itemType) {
+                const item = itemType === 'destination' 
+                    ? destinations.find(d => d.id === parseInt(itemId))
+                    : experiences.find(e => e.id === parseInt(itemId));
+                if (!item) return;
+
+                currentBooking = {
+                    destinationId: itemType === 'destination' ? item.id : null, date: null, people: 1, time: null, price: 0,
+                    destinationName: item.name, type: itemType, basePrice: item.basePrice || item.price, useTrashBack: false,
+                };
+                
+                const modalTitle = modals.booking.querySelector('#modal-title');
+                const bookingDate = modals.booking.querySelector('#booking-date');
+                const bookingPeople = modals.booking.querySelector('#booking-people');
+                const trashBackCheckbox = modals.booking.querySelector('#trash-back-checkbox');
+                const timeSlotsContainer = modals.booking.querySelector('#time-slots');
+                const trashBackContainer = modals.booking.querySelector('#trash-back-container');
+
+                modalTitle.textContent = `Book: ${item.name}`;
+                bookingDate.value = '';
+                bookingPeople.value = 1;
+                trashBackCheckbox.checked = false;
+                
+                const today = new Date().toISOString().split('T')[0];
+                bookingDate.setAttribute('min', today);
+
+                if (itemType === 'destination') {
+                    timeSlotsContainer.parentElement.style.display = 'block';
+                    trashBackContainer.style.display = 'block';
+                    generateTimeSlots();
+                } else {
+                    timeSlotsContainer.parentElement.style.display = 'none';
+                    trashBackContainer.style.display = 'none';
+                    currentBooking.time = 'All Day';
+                }
+                
+                updatePrice();
+                openModal(modals.booking);
+            }
+
+            function generateTimeSlots() {
+                const timeSlotsContainer = modals.booking.querySelector('#time-slots');
+                timeSlotsContainer.innerHTML = '';
+                for (let i = 8; i <= 17; i++) {
+                    const time = `${i}:00 - ${i + 1}:00`;
+                    const isPeak = i >= 10 && i < 14;
+                    const button = document.createElement('button');
+                    button.textContent = time;
+                    button.dataset.time = time;
+                    button.dataset.peak = isPeak;
+                    button.className = 'p-2 border rounded-lg text-sm hover:bg-teal-100 transition focus:outline-none focus:ring-2 focus:ring-teal-500';
+                    timeSlotsContainer.appendChild(button);
+                }
+            }
+            
+            function updatePrice() {
+                const priceDisplay = modals.booking.querySelector('#total-price');
+                const priceInfo = modals.booking.querySelector('#price-info');
+                const confirmBookingBtn = modals.booking.querySelector('#confirm-booking-btn');
+
+                if (!currentBooking.date) {
+                    priceDisplay.textContent = `₹--`;
+                    priceInfo.innerHTML = '&nbsp;';
+                    confirmBookingBtn.disabled = true;
+                    return;
+                }
+
+                let price = currentBooking.basePrice;
+                let info = [];
+
+                if(currentBooking.type === 'destination'){
+                    const selectedDate = new Date(currentBooking.date);
+                    const dayOfWeek = selectedDate.getDay();
+                    if (dayOfWeek === 0 || dayOfWeek === 6) {
+                        price *= 1.5; info.push('Weekend Surcharge');
+                    }
+                    if (currentBooking.time) {
+                        const timeSlotsContainer = modals.booking.querySelector('#time-slots');
+                        const selectedSlot = timeSlotsContainer.querySelector(`[data-time="${currentBooking.time}"]`);
+                        if (selectedSlot && selectedSlot.dataset.peak === 'true') {
+                            price *= 1.2; info.push('Peak Hour');
+                        }
+                    }
+                }
+                
+                const finalPrice = Math.round(price * currentBooking.people);
+                currentBooking.price = finalPrice;
+                
+                let totalPrice = finalPrice;
+                if (currentBooking.useTrashBack) {
+                    totalPrice += environmentalDeposit;
+                }
+
+                priceDisplay.textContent = `₹${totalPrice}`;
+                priceInfo.textContent = info.join(' + ') || 'Standard Pricing';
+                confirmBookingBtn.disabled = !(currentBooking.time && currentBooking.date);
+            }
+            
+            // --- EVENT LISTENERS ---
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const helplineBtnMobile = document.getElementById('helpline-btn-mobile');
+
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+
+            const closeMobileMenu = () => mobileMenu.classList.add('hidden');
+
+            mobileMenu.addEventListener('click', (e) => {
+                if (e.target.tagName === 'A' && e.target.id !== 'helpline-btn-mobile') {
+                    closeMobileMenu();
+                }
+            });
+            helplineBtnMobile.addEventListener('click', (e) => {
+                e.preventDefault();
+                openModal(modals.helpline);
+                closeMobileMenu();
+            });
+
+            chatFab.addEventListener('click', () => openModal(modals.chat));
+            openChatFromPlannerBtn.addEventListener('click', () => openModal(modals.chat));
+            
+            const sosButton = document.getElementById('sos-button');
+            if (sosButton) {
+                sosButton.addEventListener('click', () => {
+                    showConfirm(
+                        "This will send your location to emergency services. This is a demo feature. Are you sure you want to proceed?",
+                        "Activate SOS?",
+                        () => {
+                            showAlert("SOS Activated (Demo). In a real app, emergency services would be notified with your location.", "SOS Activated");
+                        }
+                    );
+                });
+            }
+
+            const openHelpline = (e) => { e.preventDefault(); openModal(modals.helpline); };
+            helplineBtnNav.addEventListener('click', openHelpline);
+            helplineBtnFooter.addEventListener('click', openHelpline);
+            
+            modalBackdrop.addEventListener('click', (e) => {
+                if(e.target === modalBackdrop || e.target.closest('[data-close-button]')) {
+                    closeModal();
+                }
+            });
+
+            destinationGrid.addEventListener('click', (e) => {
+                const button = e.target.closest('.book-now-btn');
+                if (button) { setupBookingModal(button.dataset.id, 'destination'); }
+            });
+
+            document.getElementById('diversion-grid-modal').addEventListener('click', (e) => {
+                const button = e.target.closest('.book-now-btn');
+                if (button) { 
+                    closeModal();
+                    setTimeout(() => setupBookingModal(button.dataset.id, 'destination'), 350);
+                }
+            });
+            
+            experiencesGrid.addEventListener('click', (e) => {
+                const button = e.target.closest('.book-exp-btn');
+                if (button) { setupBookingModal(button.dataset.id, 'experience'); }
+            });
+            
+            document.getElementById('chat-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const chatInput = document.getElementById('chat-input');
+                const userInput = chatInput.value.trim();
+                if (!userInput) return;
+                addChatMessage(userInput, 'user');
+                chatInput.value = '';
+                getAIResponse(userInput);
+            });
+
+            // Booking Modal Listeners
+            const bookingModal = modals.booking;
+            bookingModal.querySelector('#booking-date').addEventListener('change', (e) => { currentBooking.date = e.target.value; updatePrice(); });
+            bookingModal.querySelector('#booking-people').addEventListener('change', (e) => { currentBooking.people = parseInt(e.target.value); updatePrice(); });
+            bookingModal.querySelector('#trash-back-checkbox').addEventListener('change', (e) => { currentBooking.useTrashBack = e.target.checked; updatePrice(); });
+            bookingModal.querySelector('#time-slots').addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    bookingModal.querySelector('#time-slots').querySelectorAll('button').forEach(btn => btn.classList.remove('bg-teal-600', 'text-white'));
+                    e.target.classList.add('bg-teal-600', 'text-white');
+                    currentBooking.time = e.target.dataset.time;
+                    updatePrice();
+                }
+            });
+            bookingModal.querySelector('#confirm-booking-btn').addEventListener('click', () => {
+                closeModal();
+                setTimeout(() => showConfirmation(), 350);
+            });
+
+            // Dashboard Toggle Listeners
+            const liveViewBtn = document.getElementById('live-view-btn');
+            const forecastViewBtn = document.getElementById('forecast-view-btn');
+            const liveContainer = document.getElementById('live-chart-container');
+            const forecastContainer = document.getElementById('forecast-chart-container');
+
+            liveViewBtn.addEventListener('click', () => {
+                liveViewBtn.classList.add('active');
+                forecastViewBtn.classList.remove('active');
+                liveContainer.style.display = 'block';
+                forecastContainer.style.display = 'none';
+            });
+
+             forecastViewBtn.addEventListener('click', () => {
+                forecastViewBtn.classList.add('active');
+                liveViewBtn.classList.remove('active');
+                forecastContainer.style.display = 'block';
+                liveContainer.style.display = 'none';
+            });
+            
+            analyticsSelect.addEventListener('change', (e) => {
+                renderAnalytics(parseInt(e.target.value));
+            });
+            
+            // Rewards Modal
+            redeemRewardsBtn.addEventListener('click', () => {
+                renderRewards();
+                openModal(modals.rewards);
+            });
+            
+            document.getElementById('rewards-grid').addEventListener('click', (e) => {
+                if(e.target.classList.contains('redeem-btn')) {
+                    const code = e.target.dataset.code;
+                    closeModal();
+                    setTimeout(() => {
+                        showAlert(`Your coupon code is: ${code}`, "Reward Redeemed!");
+                    }, 350);
+                }
+            });
+            
+            function populateAnalyticsSelect() {
+                destinations.forEach(dest => {
+                    if (dest.id < 100) { // Only primary destinations
+                        const option = document.createElement('option');
+                        option.value = dest.id;
+                        option.textContent = dest.name;
+                        analyticsSelect.appendChild(option);
+                    }
+                });
+            }
+            
+            // Map Filters
+            document.querySelectorAll('.filter-select').forEach(sel => {
+                sel.addEventListener('change', renderFilteredMapDestinations);
+            });
+
+            // --- INITIALIZATION ---
+            populateAnalyticsSelect();
+            renderAnalytics(parseInt(analyticsSelect.value)); // Render initial chart
+            renderDestinations();
+            renderExperiences();
+            renderFilteredMapDestinations();
+            addChatMessage('Hello! I am Kai, your EcoFlow AI Assistant. How can I help you plan your sustainable trip to Meghalaya today?', 'bot');
+        });
+    </script>
+</body>
+</html>
+
